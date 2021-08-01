@@ -186,7 +186,7 @@ public class AIBrainEditor : Editor
                     {
                         var labelWidth = EditorGUIUtility.labelWidth;
                         EditorGUIUtility.labelWidth = 0;
-                        EditorGUILayout.ObjectField("", editor.serializedObject.FindProperty("m_Script").objectReferenceValue, typeof(UnityEngine.Object), false);
+                        EditorGUILayout.ObjectField("", editor.serializedObject.FindProperty("m_Script").objectReferenceValue, typeof(UnityEngine.Object), false) ;
                         EditorGUIUtility.labelWidth = labelWidth;
                     }
                     EditorGUI.EndDisabledGroup();
@@ -198,6 +198,8 @@ public class AIBrainEditor : Editor
                     }
                 }
                 EditorGUILayout.EndHorizontal();
+                EditorGUILayout.Space(2);
+
                 if (!isRemoved && state.editorShow)
                 {
                     EditorGUI.indentLevel++;

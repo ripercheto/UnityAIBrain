@@ -20,8 +20,8 @@ public class AIBrainEditor : Editor
     private int rightClickedState;
 
     private int draggedIndex = -1;
-    private const float DRAG_PADDING = 50;
-
+    private const float DRAG_PADDING_MUL = 0.75f;
+    private Texture2D dragTexture;
     public int DraggedIndex
     {
         get => draggedIndex; set
@@ -49,6 +49,9 @@ public class AIBrainEditor : Editor
         rightClickMenu = new GenericMenu();
         //rightClickMenu.AddItem(new GUIContent("Add Switch Condition/Test"), false, OnRightClickMenuItemClicked, 1);
         rightClickMenu.AddItem(new GUIContent("Remove"), false, RemoveRightClickedState);
+        dragTexture = new Texture2D(1, 1);
+        dragTexture.LoadImage(System.IO.File.ReadAllBytes("Assets/Code/Editor/DragIcon.png"));
+        dragTexture.Apply();
     }
     private void OnDisable()
     {
@@ -93,23 +96,36 @@ public class AIBrainEditor : Editor
 
             if (brain.editorShowStates)
             {
-                EditorGUI.indentLevel++;
+                UpdateEditorsSize(brain.states.Count);
+                for (int i = 0; i < brain.states.Count; i++)
                 {
-                    UpdateEditorsSize(brain.states.Count);
-                    for (int i = 0; i < brain.states.Count; i++)
+                    BaseState state = brain.states[i];
+                    if (state == null)
                     {
-                        BaseState state = brain.states[i];
-                        if (state == null)
+                        continue;
+                    }
+
+                    EditorGUILayout.BeginHorizontal();
+                    {
+                        GUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Width(16));
                         {
-                            continue;
+                            GUILayout.FlexibleSpace();
+                            EditorGUILayout.LabelField(new GUIContent(dragTexture), GUILayout.Width(16));
+                            GUILayout.FlexibleSpace();
+                        }
+                        EditorGUILayout.EndVertical();
+                        if (i >= 0 && i < typeRects.Length)
+                        {
+                            typeRects[i] = GUILayoutUtility.GetLastRect();
                         }
 
                         DrawState(state, i);
                     }
-                    DrawNoneLabel();
+                    EditorGUILayout.EndHorizontal();
                 }
-                EditorGUI.indentLevel--;
+                DrawNoneLabel();
             }
+            GUILayout.Space(2);
         }
         EditorGUILayout.EndVertical();
         statesRect = GUILayoutUtility.GetLastRect();
@@ -164,9 +180,14 @@ public class AIBrainEditor : Editor
 
                 EditorGUILayout.BeginHorizontal();
                 {
+                    GUILayout.Space(16);
+                    state.editorShow = EditorGUILayout.Foldout(state.editorShow, state.GetType().Name, true);
                     EditorGUI.BeginDisabledGroup(true);
                     {
-                        EditorGUILayout.ObjectField(state.GetType().Name, editor.serializedObject.FindProperty("m_Script").objectReferenceValue, typeof(UnityEngine.Object), false);
+                        var labelWidth = EditorGUIUtility.labelWidth;
+                        EditorGUIUtility.labelWidth = 0;
+                        EditorGUILayout.ObjectField("", editor.serializedObject.FindProperty("m_Script").objectReferenceValue, typeof(UnityEngine.Object), false);
+                        EditorGUIUtility.labelWidth = labelWidth;
                     }
                     EditorGUI.EndDisabledGroup();
 
@@ -177,18 +198,18 @@ public class AIBrainEditor : Editor
                     }
                 }
                 EditorGUILayout.EndHorizontal();
-                if (!isRemoved)
+                if (!isRemoved && state.editorShow)
                 {
-                    editor.OnInspectorGUI();
+                    EditorGUI.indentLevel++;
+                    {
+                        editor.OnInspectorGUI();
+                    }
+                    EditorGUI.indentLevel--;
                 }
             }
             EditorGUILayout.EndVertical();
 
             //end
-            if (i >= 0 && i < typeRects.Length)
-            {
-                typeRects[i] = GUILayoutUtility.GetLastRect();
-            }
             GUI.backgroundColor = Color.white;
         }
 
@@ -237,25 +258,29 @@ public class AIBrainEditor : Editor
                 {
                     return;
                 }
-                var index = GetRectUnderMouse(e);
-                if (index >= 0 && index != DraggedIndex)
+                for (int index = 0; index < typeRects.Length; index++)
                 {
-                    var mPos = Event.current.mousePosition.y;
-                    var r = typeRects[index];
+                    if (index != DraggedIndex)
+                    {
+                        var mPos = Event.current.mousePosition.y;
+                        var r = typeRects[index];
 
-                    if (DraggedIndex < index && mPos > r.position.y + r.height - DRAG_PADDING)
-                    {
-                        var draggedState = brain.states[DraggedIndex];
-                        brain.states.Insert(index + 1, draggedState);
-                        brain.states.RemoveAt(DraggedIndex);
-                        DraggedIndex = index;
-                    }
-                    else if (DraggedIndex > index && mPos < r.position.y + DRAG_PADDING)
-                    {
-                        var draggedState = brain.states[DraggedIndex];
-                        brain.states.Insert(index, draggedState);
-                        brain.states.RemoveAt(DraggedIndex + 1);
-                        DraggedIndex = index;
+                        if (DraggedIndex < index && mPos > r.position.y + r.height - GetPadding(r.height))
+                        {
+                            //Debug.Log("down");
+                            var draggedState = brain.states[DraggedIndex];
+                            brain.states.Insert(index + 1, draggedState);
+                            brain.states.RemoveAt(DraggedIndex);
+                            DraggedIndex = index;
+                        }
+                        else if (DraggedIndex > index && mPos < r.position.y + GetPadding(r.height))
+                        {
+                            //Debug.Log("up");
+                            var draggedState = brain.states[DraggedIndex];
+                            brain.states.Insert(index, draggedState);
+                            brain.states.RemoveAt(DraggedIndex + 1);
+                            DraggedIndex = index;
+                        }
                     }
                 }
 
@@ -265,6 +290,8 @@ public class AIBrainEditor : Editor
                 DraggedIndex = -1;
             }
         }
+
+        float GetPadding(float height) => height * DRAG_PADDING_MUL;
 
         void HandleRightclick()
         {
